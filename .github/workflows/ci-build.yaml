@@ -28,7 +28,8 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3  # Update to version v3 or later
+
 
       - name: Install dependencies
         run: |
