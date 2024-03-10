@@ -118,4 +118,5 @@ class Account(db.Model, PersistentBase):
         """Returns all Accounts with the given name"""
         logger.info("Processing name query for %s ...", name)
         return cls.query.filter(cls.name == name)
-        
+
+# Newline at the end of the file
