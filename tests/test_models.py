@@ -1,10 +1,6 @@
-"""
-Models for Account
-
-All of the models are stored in this module
-"""
 import logging
 from datetime import date
+
 from flask_sqlalchemy import SQLAlchemy
 
 logger = logging.getLogger("flask.app")
@@ -14,41 +10,29 @@ db = SQLAlchemy()
 
 
 class DataValidationError(Exception):
-    """Used for an data validation errors when deserializing"""
+    """Used for data validation errors when deserializing"""
 
 
-def init_db(app):
-    """Initialize the SQLAlchemy app"""
-    Account.init_db(app)
-
-
-######################################################################
-#  P E R S I S T E N T   B A S E   M O D E L
-######################################################################
 class PersistentBase:
-    """Base class added persistent methods"""
+    """Base class for adding persistent methods"""
 
     def __init__(self):
-        self.id = None  # pylint: disable=invalid-name
+        self.id = None
 
     def create(self):
-        """
-        Creates a Account to the database
-        """
+        """Creates an Account in the database"""
         logger.info("Creating %s", self.name)
-        self.id = None  # id must be none to generate next primary key
+        self.id = None
         db.session.add(self)
         db.session.commit()
 
     def update(self):
-        """
-        Updates a Account to the database
-        """
+        """Updates an Account in the database"""
         logger.info("Updating %s", self.name)
         db.session.commit()
 
     def delete(self):
-        """Removes a Account from the data store"""
+        """Removes an Account from the data store"""
         logger.info("Deleting %s", self.name)
         db.session.delete(self)
         db.session.commit()
@@ -61,28 +45,23 @@ class PersistentBase:
         # This is where we initialize SQLAlchemy from the Flask app
         db.init_app(app)
         app.app_context().push()
-        db.create_all()  # make our sqlalchemy tables
+        db.create_all()  # Create the SQLAlchemy tables
 
     @classmethod
     def all(cls):
-        """Returns all of the records in the database"""
+        """Returns all records in the database"""
         logger.info("Processing all records")
         return cls.query.all()
 
     @classmethod
     def find(cls, by_id):
-        """Finds a record by it's ID"""
+        """Finds a record by its ID"""
         logger.info("Processing lookup for id %s ...", by_id)
         return cls.query.get(by_id)
 
 
-######################################################################
-#  A C C O U N T   M O D E L
-######################################################################
 class Account(db.Model, PersistentBase):
-    """
-    Class that represents an Account
-    """
+    """Class that represents an Account"""
 
     app = None
 
@@ -98,7 +77,7 @@ class Account(db.Model, PersistentBase):
         return f"<Account {self.name} id=[{self.id}]>"
 
     def serialize(self):
-        """Serializes a Account into a dictionary"""
+        """Serializes an Account into a dictionary"""
         return {
             "id": self.id,
             "name": self.name,
@@ -110,7 +89,7 @@ class Account(db.Model, PersistentBase):
 
     def deserialize(self, data):
         """
-        Deserializes a Account from a dictionary
+        Deserializes an Account from a dictionary
 
         Args:
             data (dict): A dictionary containing the resource data
@@ -136,10 +115,7 @@ class Account(db.Model, PersistentBase):
 
     @classmethod
     def find_by_name(cls, name):
-        """Returns all Accounts with the given name
-
-        Args:
-            name (string): the name of the Accounts you want to match
-        """
+        """Returns all Accounts with the given name"""
         logger.info("Processing name query for %s ...", name)
         return cls.query.filter(cls.name == name)
+        
