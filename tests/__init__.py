@@ -1,5 +1,3 @@
-# service/__init__.py
-
 """
 Package: service
 Package for the application models and service routes
@@ -15,6 +13,8 @@ from flask_cors import CORS
 
 # Create Flask application
 app = Flask(__name__)
+talisman = Talisman(app)
+CORS(app)
 app.config.from_object(config)
 
 # Import the routes After the Flask app is created
@@ -39,9 +39,3 @@ except Exception as error:  # pylint: disable=broad-except
     sys.exit(4)
 
 app.logger.info("Service initialized!")
-
-# Initialize Flask-Talisman for security headers
-talisman = Talisman(app, force_https=False)
-
-# Initialize Flask-Cors for CORS headers
-CORS(app)
