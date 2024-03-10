@@ -1,177 +1,145 @@
 """
-Test cases for Account Model
+Models for Account
 
+All of the models are stored in this module
 """
 import logging
-import unittest
-import os
-from service import app
-from service.models import Account, DataValidationError, db
-from tests.factories import AccountFactory
+from datetime import date
+from flask_sqlalchemy import SQLAlchemy
 
-DATABASE_URI = os.getenv(
-    "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
-)
+logger = logging.getLogger("flask.app")
+
+# Create the SQLAlchemy object to be initialized later in init_db()
+db = SQLAlchemy()
+
+
+class DataValidationError(Exception):
+    """Used for an data validation errors when deserializing"""
+
+
+def init_db(app):
+    """Initialize the SQLAlchemy app"""
+    Account.init_db(app)
 
 
 ######################################################################
-#  Account   M O D E L   T E S T   C A S E S
+#  P E R S I S T E N T   B A S E   M O D E L
 ######################################################################
-class TestAccount(unittest.TestCase):
-    """Test Cases for Account Model"""
+class PersistentBase:
+    """Base class added persistent methods"""
 
-    @classmethod
-    def setUpClass(cls):
-        """This runs once before the entire test suite"""
-        app.config["TESTING"] = True
-        app.config["DEBUG"] = False
-        app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
-        app.logger.setLevel(logging.CRITICAL)
-        Account.init_db(app)
+    def __init__(self):
+        self.id = None  # pylint: disable=invalid-name
 
-    @classmethod
-    def tearDownClass(cls):
-        """This runs once after the entire test suite"""
-
-    def setUp(self):
-        """This runs before each test"""
-        db.session.query(Account).delete()  # clean up the last tests
+    def create(self):
+        """
+        Creates a Account to the database
+        """
+        logger.info("Creating %s", self.name)
+        self.id = None  # id must be none to generate next primary key
+        db.session.add(self)
         db.session.commit()
 
-    def tearDown(self):
-        """This runs after each test"""
-        db.session.remove()
+    def update(self):
+        """
+        Updates a Account to the database
+        """
+        logger.info("Updating %s", self.name)
+        db.session.commit()
 
-    ######################################################################
-    #  T E S T   C A S E S
-    ######################################################################
+    def delete(self):
+        """Removes a Account from the data store"""
+        logger.info("Deleting %s", self.name)
+        db.session.delete(self)
+        db.session.commit()
 
-    def test_create_an_account(self):
-        """It should Create an Account and assert that it exists"""
-        fake_account = AccountFactory()
-        # pylint: disable=unexpected-keyword-arg
-        account = Account(
-            name=fake_account.name,
-            email=fake_account.email,
-            address=fake_account.address,
-            phone_number=fake_account.phone_number,
-            date_joined=fake_account.date_joined,
-        )
-        self.assertIsNotNone(account)
-        self.assertEqual(account.id, None)
-        self.assertEqual(account.name, fake_account.name)
-        self.assertEqual(account.email, fake_account.email)
-        self.assertEqual(account.address, fake_account.address)
-        self.assertEqual(account.phone_number, fake_account.phone_number)
-        self.assertEqual(account.date_joined, fake_account.date_joined)
+    @classmethod
+    def init_db(cls, app):
+        """Initializes the database session"""
+        logger.info("Initializing database")
+        cls.app = app
+        # This is where we initialize SQLAlchemy from the Flask app
+        db.init_app(app)
+        app.app_context().push()
+        db.create_all()  # make our sqlalchemy tables
 
-    def test_add_a_account(self):
-        """It should Create an account and add it to the database"""
-        accounts = Account.all()
-        self.assertEqual(accounts, [])
-        account = AccountFactory()
-        account.create()
-        # Assert that it was assigned an id and shows up in the database
-        self.assertIsNotNone(account.id)
-        accounts = Account.all()
-        self.assertEqual(len(accounts), 1)
+    @classmethod
+    def all(cls):
+        """Returns all of the records in the database"""
+        logger.info("Processing all records")
+        return cls.query.all()
 
-    def test_read_account(self):
-        """It should Read an account"""
-        account = AccountFactory()
-        account.create()
+    @classmethod
+    def find(cls, by_id):
+        """Finds a record by it's ID"""
+        logger.info("Processing lookup for id %s ...", by_id)
+        return cls.query.get(by_id)
 
-        # Read it back
-        found_account = Account.find(account.id)
-        self.assertEqual(found_account.id, account.id)
-        self.assertEqual(found_account.name, account.name)
-        self.assertEqual(found_account.email, account.email)
-        self.assertEqual(found_account.address, account.address)
-        self.assertEqual(found_account.phone_number, account.phone_number)
-        self.assertEqual(found_account.date_joined, account.date_joined)
 
-    def test_update_account(self):
-        """It should Update an account"""
-        account = AccountFactory(email="advent@change.me")
-        account.create()
-        # Assert that it was assigned an id and shows up in the database
-        self.assertIsNotNone(account.id)
-        self.assertEqual(account.email, "advent@change.me")
+######################################################################
+#  A C C O U N T   M O D E L
+######################################################################
+class Account(db.Model, PersistentBase):
+    """
+    Class that represents an Account
+    """
 
-        # Fetch it back
-        account = Account.find(account.id)
-        account.email = "XYZZY@plugh.com"
-        account.update()
+    app = None
 
-        # Fetch it back again
-        account = Account.find(account.id)
-        self.assertEqual(account.email, "XYZZY@plugh.com")
+    # Table Schema
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64))
+    email = db.Column(db.String(64))
+    address = db.Column(db.String(256))
+    phone_number = db.Column(db.String(32), nullable=True)  # phone number is optional
+    date_joined = db.Column(db.Date(), nullable=False, default=date.today())
 
-    def test_delete_an_account(self):
-        """It should Delete an account from the database"""
-        accounts = Account.all()
-        self.assertEqual(accounts, [])
-        account = AccountFactory()
-        account.create()
-        # Assert that it was assigned an id and shows up in the database
-        self.assertIsNotNone(account.id)
-        accounts = Account.all()
-        self.assertEqual(len(accounts), 1)
-        account = accounts[0]
-        account.delete()
-        accounts = Account.all()
-        self.assertEqual(len(accounts), 0)
+    def __repr__(self):
+        return f"<Account {self.name} id=[{self.id}]>"
 
-    def test_list_all_accounts(self):
-        """It should List all Accounts in the database"""
-        accounts = Account.all()
-        self.assertEqual(accounts, [])
-        for account in AccountFactory.create_batch(5):
-            account.create()
-        # Assert that there are not 5 accounts in the database
-        accounts = Account.all()
-        self.assertEqual(len(accounts), 5)
+    def serialize(self):
+        """Serializes a Account into a dictionary"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "address": self.address,
+            "phone_number": self.phone_number,
+            "date_joined": self.date_joined.isoformat()
+        }
 
-    def test_find_by_name(self):
-        """It should Find an Account by name"""
-        account = AccountFactory()
-        account.create()
+    def deserialize(self, data):
+        """
+        Deserializes a Account from a dictionary
 
-        # Fetch it back by name
-        same_account = Account.find_by_name(account.name)[0]
-        self.assertEqual(same_account.id, account.id)
-        self.assertEqual(same_account.name, account.name)
+        Args:
+            data (dict): A dictionary containing the resource data
+        """
+        try:
+            self.name = data["name"]
+            self.email = data["email"]
+            self.address = data["address"]
+            self.phone_number = data.get("phone_number")
+            date_joined = data.get("date_joined")
+            if date_joined:
+                self.date_joined = date.fromisoformat(date_joined)
+            else:
+                self.date_joined = date.today()
+        except KeyError as error:
+            raise DataValidationError("Invalid Account: missing " + error.args[0]) from error
+        except TypeError as error:
+            raise DataValidationError(
+                "Invalid Account: body of request contained "
+                "bad or no data - " + error.args[0]
+            ) from error
+        return self
 
-    def test_serialize_an_account(self):
-        """It should Serialize an account"""
-        account = AccountFactory()
-        serial_account = account.serialize()
-        self.assertEqual(serial_account["id"], account.id)
-        self.assertEqual(serial_account["name"], account.name)
-        self.assertEqual(serial_account["email"], account.email)
-        self.assertEqual(serial_account["address"], account.address)
-        self.assertEqual(serial_account["phone_number"], account.phone_number)
-        self.assertEqual(serial_account["date_joined"], str(account.date_joined))
+    @classmethod
+    def find_by_name(cls, name):
+        """Returns all Accounts with the given name
 
-    def test_deserialize_an_account(self):
-        """It should Deserialize an account"""
-        account = AccountFactory()
-        account.create()
-        serial_account = account.serialize()
-        new_account = Account()
-        new_account.deserialize(serial_account)
-        self.assertEqual(new_account.name, account.name)
-        self.assertEqual(new_account.email, account.email)
-        self.assertEqual(new_account.address, account.address)
-        self.assertEqual(new_account.phone_number, account.phone_number)
-        self.assertEqual(new_account.date_joined, account.date_joined)
-
-    def test_deserialize_with_key_error(self):
-        """It should not Deserialize an account with a KeyError"""
-        account = Account()
-        self.assertRaises(DataValidationError, account.deserialize, {})
-
-    def test_deserialize_with_type_error(self):
-        """It should not Deserialize an account with a TypeError"""
-        account = Account()
-        self.assertRaises(DataValidationError, account.deserialize, [])
+        Args:
+            name (string): the name of the Accounts you want to match
+        """
+        logger.info("Processing name query for %s ...", name)
+        return cls.query.filter(cls.name == name)
